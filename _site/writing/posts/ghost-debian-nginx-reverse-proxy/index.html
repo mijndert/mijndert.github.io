@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html>
+  <head>
+      <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+      <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1" />
+      <title>Mijndert Stuij - Ghost on Debian with Nginx as a reverse proxy</title>
+      <meta name="description" content="Consulting AWS engineer and proponent of simplicity with a focus on highly scalable cloud infrastructure" />
+      <meta name="HandheldFriendly" content="True" />
+      <meta name="MobileOptimized" content="320" />
+      <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+      <link rel="shortcut icon" href="/favicon.ico">
+      <meta name="google-site-verification" content="saUIHjzun9dAGQ4-YTEb0W_vLiFRM1sEiHZXPCCOmyc" />
+      <link rel="alternate" type="application/rss+xml" title="Mijndert Stuij" href="https://mijndertstuij.nl/feed.xml">
+  </head>
+  <body class="home-template">
+      <header class="main-header post-header no-cover">
+    <div class="vertical">
+        <div class="main-header-content inner">
+            <h1 class="page-title">Ghost on Debian with Nginx as a reverse proxy</h1>
+            <p class="nav">
+  <a href="/">Home</a>
+  <a href="/about/">About</a>
+  <a href="/uses/">Uses</a>
+  <a href="/now/">Now</a>
+  <a href="mailto:mijndert@mijndertstuij.nl">AMA</a>
+</p>
+
+        </div>
+    </div>
+</header>
+
+<main class="content" role="main">
+
+    <article class="post">
+
+        <header class="post-header">
+            <section class="post-meta">
+                <time class="post-date" datetime="2015-02-04">04 Feb 2015</time>
+                
+            </section>
+        </header>
+
+        <section class="post-content">
+            <p>I finally came around to trying out Ghost and I’m loving it. So much that I switched my old Jekyll website over to Ghost. I used a <a href="https://github.com/mattvh/Jekyll-to-Ghost/blob/master/jekylltoghost.rb">small Ruby script</a> to convert my Markdown files to a JSON file that Ghost can use to import my posts. Here’s a quick tutorial how to install NodeJS and Ghost and use Nginx as a reverse proxy.</p>
+
+<!-- more -->
+
+<h3 id="install-dependencies">Install dependencies</h3>
+
+<p>We’ll need NPM and unzip to extract Ghost and prepare it’s dependencies.</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>apt-get <span class="nb">install </span>unzip npm
+</code></pre></div></div>
+
+<p>After all that’s done we can install NodeJS. <a href="https://nodesource.com/">Nodesource</a> provides an excellent Debian repository for NodeJS packages. Add it to your <em>sources.list</em> or create a new file in <em>/etc/apt/sources.list.d/</em>.</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>deb https://deb.nodesource.com/node wheezy main
+deb-src https://deb.nodesource.com/node wheezy main
+</code></pre></div></div>
+
+<p>We can now install NodeJS</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>apt-get <span class="nb">install </span>nodejs
+</code></pre></div></div>
+
+<p>You should be able to execute <em>nodejs</em> and run a few commands.</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>nodejs
+	<span class="o">&gt;</span> .help
+	.break  Sometimes you get stuck, this gets you out
+	.clear  Alias <span class="k">for</span> .break
+	.exit   Exit the repl
+	.help   Show repl options
+	.load   Load JS from a file into the REPL session
+	.save   Save all evaluated commands <span class="k">in </span>this REPL session to a file
+</code></pre></div></div>
+
+<h3 id="install-ghost">Install Ghost</h3>
+
+<p>We will create a user for Ghost to run as and <a href="https://ghost.org/download/">download</a> the latest version.</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>adduser ghost
+su - ghost
+wget https://ghost.org/zip/ghost-0.5.8.zip
+unzip  ghost-0.5.8.zip
+<span class="nb">rm </span>ghost-0.5.8.zip
+</code></pre></div></div>
+
+<p>Prepare Ghost dependencies:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>npm <span class="nb">install</span> <span class="nt">--production</span>
+</code></pre></div></div>
+
+<p>Don’t forget to change the blog address:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>vim config.js
+</code></pre></div></div>
+
+<h3 id="install-forever">Install Forever</h3>
+
+<p>You should use Forever in order to automatically restart Ghost on changes or when it crashes.</p>
+
+<p>As root:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>npm <span class="nb">install</span> <span class="nt">-g</span> forever
+</code></pre></div></div>
+
+<p>Now we can start Ghost with it’s own user:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nv">NODE_ENV</span><span class="o">=</span>production forever start index.js
+</code></pre></div></div>
+
+<p>To stop the Forever process that’s keeping Ghost online you can list all processes and kill the ID.</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>forever list
+forever stop &lt;ID&gt;
+</code></pre></div></div>
+
+<h3 id="nginx-reverse-proxy">Nginx reverse proxy</h3>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>server <span class="o">{</span>
+    listen         80<span class="p">;</span>
+    server_name &lt;your-blog-address&gt;<span class="p">;</span>
+    root /home/ghost/<span class="p">;</span>
+    index index.php<span class="p">;</span>
+
+    <span class="k">if</span> <span class="o">(</span><span class="nv">$http_host</span> <span class="o">!=</span> <span class="s2">"&lt;your-blog-address&gt;"</span><span class="o">)</span> <span class="o">{</span>
+         rewrite ^ http://&lt;your-blog-address&gt;<span class="nv">$request_uri</span> permanent<span class="p">;</span>
+    <span class="o">}</span>
+
+    location / <span class="o">{</span>
+        proxy_set_header X-Real-IP  <span class="nv">$remote_addr</span><span class="p">;</span>
+        proxy_set_header X-Forwarded-For <span class="nv">$remote_addr</span><span class="p">;</span>
+        proxy_set_header Host <span class="nv">$host</span><span class="p">;</span>
+        proxy_pass http://127.0.0.1:2368<span class="p">;</span>
+    <span class="o">}</span>
+
+    location ~<span class="k">*</span> <span class="se">\.</span><span class="o">(</span>?:ico|css|js|gif|jpe?g|png|ttf|woff<span class="o">)</span><span class="nv">$ </span><span class="o">{</span>
+        access_log off<span class="p">;</span>
+        expires 30d<span class="p">;</span>
+        add_header Pragma public<span class="p">;</span>
+        add_header Cache-Control <span class="s2">"public, mustrevalidate, proxy-revalidate"</span><span class="p">;</span>
+        proxy_pass http://127.0.0.1:2368<span class="p">;</span>
+    <span class="o">}</span>
+
+    location <span class="o">=</span> /robots.txt <span class="o">{</span> access_log off<span class="p">;</span> log_not_found off<span class="p">;</span> <span class="o">}</span>
+    location <span class="o">=</span> /favicon.ico <span class="o">{</span> access_log off<span class="p">;</span> log_not_found off<span class="p">;</span> <span class="o">}</span>
+
+    location ~ /<span class="se">\.</span>ht <span class="o">{</span>
+            deny all<span class="p">;</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+</code></pre></div></div>
+
+<p>Test the configuration and reload Nginx</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>nginx <span class="nt">-t</span> <span class="o">&amp;&amp;</span> nginx <span class="nt">-s</span> reload
+</code></pre></div></div>
+
+<p>Your Ghost blog should now be online at <code class="highlighter-rouge">http://&lt;your-blog-address&gt;</code>.</p>
+
+<h3 id="start-ghost-with-forever-on-boot">Start Ghost with Forever on boot</h3>
+
+<p>It’s a bit of a hack but I’ve put the following in rc.local in order to let Forever run Ghost on boot:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>su ghost <span class="nt">-c</span> <span class="s1">'cd /home/ghost/; NODE_ENV=production forever start index.js'</span>
+</code></pre></div></div>
+
+        </section>
+
+    </article>
+
+</main>
+
+      <footer class="site-footer clearfix">
+        <section class="copyright">
+          <a href="/">Mijndert Stuij</a> &copy;
+            2018 &bull; All rights reserved.
+        </section>
+        <section class="poweredby">
+          Made with Jekyll using a modified <a href="http://github.com/rosario/kasper">Kasper theme</a>
+        </section>
+      </footer>
+  </body>
+  <link rel="stylesheet" type="text/css" href="/assets/css/style.css" />
+  <link rel="stylesheet" type="text/css" href="/assets/css/custom.css" />
+  <link rel="stylesheet" type="text/css" href="//fonts.googleapis.com/css?family=Merriweather:300,700,700italic,300italic|Open+Sans:700,400" />
+</html>

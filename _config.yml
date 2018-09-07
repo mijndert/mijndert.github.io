@@ -1,0 +1,26 @@
+name: Mijndert Stuij
+description: Consulting AWS engineer and proponent of simplicity with a focus on highly scalable cloud infrastructure
+url:            'https://mijndertstuij.nl'
+author:         'Mijndert Stuij'
+
+paginate: 10
+#baseurl: "/"
+
+excerpt_separator: "<!-- more -->"
+
+plugins:
+  - jekyll-paginate
+
+# Exclude on build
+exclude: [README.md, Rakefile, Makefile]
+
+# Include on build
+include: [_pages, .htaccess]
+
+markdown: kramdown
+kramdown:
+  input: GFM
+  syntax_highlighter: rouge
+
+sass:
+  style: compressed

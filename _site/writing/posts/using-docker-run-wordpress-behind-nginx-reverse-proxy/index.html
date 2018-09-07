@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html>
+  <head>
+      <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+      <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1" />
+      <title>Mijndert Stuij - Using Docker to run WordPress behind an Nginx reverse proxy</title>
+      <meta name="description" content="Consulting AWS engineer and proponent of simplicity with a focus on highly scalable cloud infrastructure" />
+      <meta name="HandheldFriendly" content="True" />
+      <meta name="MobileOptimized" content="320" />
+      <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+      <link rel="shortcut icon" href="/favicon.ico">
+      <meta name="google-site-verification" content="saUIHjzun9dAGQ4-YTEb0W_vLiFRM1sEiHZXPCCOmyc" />
+      <link rel="alternate" type="application/rss+xml" title="Mijndert Stuij" href="https://mijndertstuij.nl/feed.xml">
+  </head>
+  <body class="home-template">
+      <header class="main-header post-header no-cover">
+    <div class="vertical">
+        <div class="main-header-content inner">
+            <h1 class="page-title">Using Docker to run WordPress behind an Nginx reverse proxy</h1>
+            <p class="nav">
+  <a href="/">Home</a>
+  <a href="/about/">About</a>
+  <a href="/uses/">Uses</a>
+  <a href="/now/">Now</a>
+  <a href="mailto:mijndert@mijndertstuij.nl">AMA</a>
+</p>
+
+        </div>
+    </div>
+</header>
+
+<main class="content" role="main">
+
+    <article class="post">
+
+        <header class="post-header">
+            <section class="post-meta">
+                <time class="post-date" datetime="2014-10-24">24 Oct 2014</time>
+                
+            </section>
+        </header>
+
+        <section class="post-content">
+            <p><a href="https://www.docker.com/">Docker</a> really seems to be taking off as a viable solution for development workflows. If you’re working with WordPress there’s already a lot of good tools besides Docker to bootstrap a new WordPress website. But here’s how to do it with Docker.</p>
+
+<!-- more -->
+
+<h3 id="install-docker-on-ubuntu">Install Docker on Ubuntu</h3>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nv">$ </span><span class="nb">sudo </span>apt-key adv <span class="nt">--keyserver</span> hkp://keyserver.ubuntu.com:80 <span class="nt">--recv-keys</span> 36A1D7869245C8950F966E92D8576A8BA88D21E9
+<span class="nv">$ </span><span class="nb">sudo </span>sh <span class="nt">-c</span> <span class="s2">"echo deb https://get.docker.com/ubuntu docker main</span><span class="se">\</span><span class="s2">
+&gt; /etc/apt/sources.list.d/docker.list"</span>
+<span class="nv">$ </span><span class="nb">sudo </span>apt-get update
+<span class="nv">$ </span><span class="nb">sudo </span>apt-get <span class="nb">install </span>lxc-docker
+</code></pre></div></div>
+
+<p>There’s also a simple script to help with this installation:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nv">$ </span>curl <span class="nt">-sSL</span> https://get.docker.com/ubuntu/ | <span class="nb">sudo </span>sh
+</code></pre></div></div>
+
+<p>To test that everything is working you can start an empty Ubuntu container:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nv">$ </span><span class="nb">sudo </span>docker run <span class="nt">-i</span> <span class="nt">-t</span> ubuntu /bin/bash
+</code></pre></div></div>
+
+<p><a href="https://docs.docker.com/installation/ubuntulinux/">More information on installing Docker on Ubuntu</a>.</p>
+
+<h3 id="get-a-docker-container-up-and-running-with-nginx-as-a-reverse-proxy">Get a Docker container up and running with Nginx as a reverse proxy</h3>
+
+<p>If you want to customize <a href="https://github.com/jwilder/nginx-proxy">the Docker container</a> before launching it you can get it from GitHub and build it yourself.</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nv">$ </span><span class="nb">cd</span> /where/you/want/to/store/the/image_source
+<span class="nv">$ </span>git clone https://github.com/jwilder/nginx-proxy.git
+<span class="nv">$ </span><span class="nb">cd </span>nginx-proxy
+<span class="nv">$ </span>docker build <span class="nt">-t</span><span class="o">=</span><span class="s2">"nginx-proxy"</span> <span class="nb">.</span>
+</code></pre></div></div>
+
+<p>Run the Docker container with the Nginx reverse proxy on port 80 this way:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nv">$ </span>docker run <span class="nt">-d</span> <span class="nt">-p</span> 80:80 <span class="nt">-v</span> /var/run/docker.sock:/tmp/docker.sock jwilder/nginx-proxy
+</code></pre></div></div>
+
+<h3 id="running-wordpress-inside-a-docker-container">Running WordPress inside a Docker container</h3>
+
+<p>In the last step we’ll get a Docker container up and running with Nginx, MySQL and WordPress. The Docker container will automatically register in the Nginx reverse proxy using an environment variable.</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nv">$ </span>git clone https://github.com/eugeneware/docker-wordpress-nginx.git
+<span class="nv">$ </span><span class="nb">cd </span>docker-wordpress-nginx
+<span class="nv">$ </span><span class="nb">sudo </span>docker build <span class="nt">-t</span><span class="o">=</span><span class="s2">"docker-wordpress-nginx"</span> <span class="nb">.</span>
+</code></pre></div></div>
+
+<p>Now we need to start a Docker container with WordPress installed. We’ll use port 8080 on the outside of the container to proxy requests to, on the inside of the container it will be port 8080 too, but you can use any port you like. We’ll also pass VIRTUAL_HOST to the container to ensure it will be registered in the reverse proxy automatically.</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nv">$ </span>docker run <span class="nt">-e</span> <span class="nv">VIRTUAL_HOST</span><span class="o">=</span>wordpress1.dev <span class="nt">-p</span> 8080:8080 <span class="nt">--name</span> wp1dev <span class="nt">-d</span> docker-wordpress-nginx
+</code></pre></div></div>
+
+<h3 id="tools">Tools</h3>
+
+<p>For management of images and containers I played with <a href="https://github.com/crosbymichael/dockerui">DockerUI</a>. It’s still in very early beta but it looks really promising and makes stopping and starting containers easier.</p>
+
+<p>You can also use <a href="http://passingcuriosity.com/2013/dnsmasq-dev-osx/">DNSmasq</a> to point for example all *.dev requests to your local machine.</p>
+
+        </section>
+
+    </article>
+
+</main>
+
+      <footer class="site-footer clearfix">
+        <section class="copyright">
+          <a href="/">Mijndert Stuij</a> &copy;
+            2018 &bull; All rights reserved.
+        </section>
+        <section class="poweredby">
+          Made with Jekyll using a modified <a href="http://github.com/rosario/kasper">Kasper theme</a>
+        </section>
+      </footer>
+  </body>
+  <link rel="stylesheet" type="text/css" href="/assets/css/style.css" />
+  <link rel="stylesheet" type="text/css" href="/assets/css/custom.css" />
+  <link rel="stylesheet" type="text/css" href="//fonts.googleapis.com/css?family=Merriweather:300,700,700italic,300italic|Open+Sans:700,400" />
+</html>

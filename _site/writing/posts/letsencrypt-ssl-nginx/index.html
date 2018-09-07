@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html>
+  <head>
+      <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+      <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1" />
+      <title>Mijndert Stuij - An A+ SSL setup using Nginx and Letsencrypt</title>
+      <meta name="description" content="Consulting AWS engineer and proponent of simplicity with a focus on highly scalable cloud infrastructure" />
+      <meta name="HandheldFriendly" content="True" />
+      <meta name="MobileOptimized" content="320" />
+      <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+      <link rel="shortcut icon" href="/favicon.ico">
+      <meta name="google-site-verification" content="saUIHjzun9dAGQ4-YTEb0W_vLiFRM1sEiHZXPCCOmyc" />
+      <link rel="alternate" type="application/rss+xml" title="Mijndert Stuij" href="https://mijndertstuij.nl/feed.xml">
+  </head>
+  <body class="home-template">
+      <header class="main-header post-header no-cover">
+    <div class="vertical">
+        <div class="main-header-content inner">
+            <h1 class="page-title">An A+ SSL setup using Nginx and Letsencrypt</h1>
+            <p class="nav">
+  <a href="/">Home</a>
+  <a href="/about/">About</a>
+  <a href="/uses/">Uses</a>
+  <a href="/now/">Now</a>
+  <a href="mailto:mijndert@mijndertstuij.nl">AMA</a>
+</p>
+
+        </div>
+    </div>
+</header>
+
+<main class="content" role="main">
+
+    <article class="post">
+
+        <header class="post-header">
+            <section class="post-meta">
+                <time class="post-date" datetime="2016-03-21">21 Mar 2016</time>
+                
+            </section>
+        </header>
+
+        <section class="post-content">
+            <p>Back in 2014 I wrote about getting an <a href="https://mijndertstuij.nl/posts/getting-a-on-ssllabs-with-nginx-startssl/">A+ on SSL Labs using StartSSL</a>. Much has changed since then, for starters we can now use the awesome <a href="https://letsencrypt.org/">Letsencrypt</a> to get our certificates.</p>
+
+<p>Letsencrypt is completely free, just like StartSSL, but it will only give out certificates that are valid for 90 days. Luckily you can renew your certificate just as easily as creating one.</p>
+
+<!-- more -->
+
+<p>Let’s talk about how to configure Nginx to get that precious A+ on <a href="https://www.ssllabs.com/ssltest/analyze.html">SSL Labs</a>.</p>
+
+<h3 id="setting-up-letsencrypt">Setting up Letsencrypt</h3>
+
+<p>First we need to install Letsencrypt. Well, not really because there’s nothing to install. Letsencrypt is very portable.</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git clone https://github.com/letsencrypt/letsencrypt
+</code></pre></div></div>
+
+<h3 id="requesting-a-certificate">Requesting a certificate</h3>
+
+<p>There’s a few ways to request a certificate because it needs to be verified during the request process. Because I already have a web server running on port 80 I use the webroot method which places a small file in your webroot.</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>sh /root/letsencrypt/letsencrypt-auto certonly <span class="nt">--webroot</span> <span class="nt">--webroot-path</span> /the/path/of/my/webroot <span class="nt">--domains</span> domain.xyz,www.domain.xyz,my.domain.xyz <span class="nt">--agree-tos</span> <span class="nt">--email</span> foo@bar.xyz
+</code></pre></div></div>
+
+<p>This will request a certificate and put it in <code class="highlighter-rouge">/etc/letsencrypt/live/domain.xyz</code>.</p>
+
+<h3 id="generating-dh-params">Generating DH params</h3>
+
+<p>Before actually configuring Nginx we’ll need to set up our <a href="https://wiki.openssl.org/index.php/Diffie-Hellman_parameters">DH params</a>:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>openssl dhparam <span class="nt">-out</span> /etc/nginx/dhparam.pem 4096
+</code></pre></div></div>
+
+<h3 id="setting-up-nginx">Setting up Nginx</h3>
+
+<p>Put this in your Nginx.conf or something that’s included.</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>ssl_session_timeout 1d<span class="p">;</span>
+ssl_session_cache shared:SSL:10m<span class="p">;</span>
+ssl_session_tickets off<span class="p">;</span>
+
+<span class="c"># Diffie-Hellman parameter for DHE ciphersuites</span>
+ssl_dhparam /etc/nginx/dhparam.pem<span class="p">;</span>
+
+ssl_protocols TLSv1.1 TLSv1.2<span class="p">;</span>
+ssl_ciphers <span class="s1">'ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-AES256-GCM-SHA384:DHE-RSA-AES128-GCM-SHA256:DHE-DSS-AES128-GCM-SHA256:kEDH+AESGCM:ECDHE-RSA-AES128-SHA256:ECDHE-ECDSA-AES128-SHA256:ECDHE-RSA-AES128-SHA:ECDHE-ECDSA-AES128-SHA:ECDHE-RSA-AES256-SHA384:ECDHE-ECDSA-AES256-SHA384:ECDHE-RSA-AES256-SHA:ECDHE-ECDSA-AES256-SHA:DHE-RSA-AES128-SHA256:DHE-RSA-AES128-SHA:DHE-DSS-AES128-SHA256:DHE-RSA-AES256-SHA256:DHE-DSS-AES256-SHA:DHE-RSA-AES256-SHA:!aNULL:!eNULL:!EXPORT:!DES:!RC4:!3DES:!MD5:!PSK'</span><span class="p">;</span>
+ssl_prefer_server_ciphers on<span class="p">;</span>
+
+<span class="c"># HSTS (ngx_http_headers_module is required) (15768000 seconds = 6 months)</span>
+add_header Strict-Transport-Security max-age<span class="o">=</span>15768000<span class="p">;</span>
+
+<span class="c"># OCSP Stapling</span>
+ssl_stapling on<span class="p">;</span>
+ssl_stapling_verify on<span class="p">;</span>
+
+<span class="c">## verify chain of trust of OCSP response using Root CA and Intermediate certs</span>
+<span class="c"># actual chain is in each vhost</span>
+resolver 8.8.8.8 8.8.4.4 <span class="nv">valid</span><span class="o">=</span>86400<span class="p">;</span>
+resolver_timeout 10<span class="p">;</span>
+</code></pre></div></div>
+
+<h3 id="vhost-configuration">Vhost configuration</h3>
+
+<p>I’ll assume you already have a vhost set up and we’re just going to add the SSL configuration.</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>listen 443 ssl<span class="p">;</span>
+listen <span class="o">[</span>::]:443 ssl<span class="p">;</span>
+
+ssl_certificate /etc/letsencrypt/live/domain.xyz/fullchain.pem<span class="p">;</span>
+ssl_certificate_key /etc/letsencrypt/live/domain.xyz/privkey.pem<span class="p">;</span>
+ssl_trusted_certificate /etc/letsencrypt/live/domain.xyz/chain.pem<span class="p">;</span>
+
+<span class="k">if</span> <span class="o">(</span><span class="nv">$scheme</span> <span class="o">=</span> http<span class="o">)</span> <span class="o">{</span>
+   <span class="k">return </span>301 https://<span class="nv">$server_name$request_uri</span><span class="p">;</span>
+<span class="o">}</span>
+</code></pre></div></div>
+
+<h3 id="the-result">The result</h3>
+
+<p>To test your set up you can go to <a href="https://www.ssllabs.com/ssltest/analyze.html">SSL Labs</a>. You should be getting an A+.</p>
+
+<h3 id="renewing-a-certificate">Renewing a certificate</h3>
+
+<p>The letsencrypt-auto binary has a renew account which I use in a cron job. It will loop through all of your certificates and check if a renewal is pending.</p>
+
+<p>I recommend you run this command every week to make sure all of your certificates renew in time.</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>sh /root/letsencrypt/letsencrypt-auto renew <span class="o">&amp;&amp;</span> service nginx reload <span class="o">&gt;</span>/var/log/renew.log
+</code></pre></div></div>
+
+        </section>
+
+    </article>
+
+</main>
+
+      <footer class="site-footer clearfix">
+        <section class="copyright">
+          <a href="/">Mijndert Stuij</a> &copy;
+            2018 &bull; All rights reserved.
+        </section>
+        <section class="poweredby">
+          Made with Jekyll using a modified <a href="http://github.com/rosario/kasper">Kasper theme</a>
+        </section>
+      </footer>
+  </body>
+  <link rel="stylesheet" type="text/css" href="/assets/css/style.css" />
+  <link rel="stylesheet" type="text/css" href="/assets/css/custom.css" />
+  <link rel="stylesheet" type="text/css" href="//fonts.googleapis.com/css?family=Merriweather:300,700,700italic,300italic|Open+Sans:700,400" />
+</html>

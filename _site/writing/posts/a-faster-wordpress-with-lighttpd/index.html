@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html>
+  <head>
+      <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+      <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1" />
+      <title>Mijndert Stuij - A faster WordPress with Lighttpd</title>
+      <meta name="description" content="Consulting AWS engineer and proponent of simplicity with a focus on highly scalable cloud infrastructure" />
+      <meta name="HandheldFriendly" content="True" />
+      <meta name="MobileOptimized" content="320" />
+      <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+      <link rel="shortcut icon" href="/favicon.ico">
+      <meta name="google-site-verification" content="saUIHjzun9dAGQ4-YTEb0W_vLiFRM1sEiHZXPCCOmyc" />
+      <link rel="alternate" type="application/rss+xml" title="Mijndert Stuij" href="https://mijndertstuij.nl/feed.xml">
+  </head>
+  <body class="home-template">
+      <header class="main-header post-header no-cover">
+    <div class="vertical">
+        <div class="main-header-content inner">
+            <h1 class="page-title">A faster WordPress with Lighttpd</h1>
+            <p class="nav">
+  <a href="/">Home</a>
+  <a href="/about/">About</a>
+  <a href="/uses/">Uses</a>
+  <a href="/now/">Now</a>
+  <a href="mailto:mijndert@mijndertstuij.nl">AMA</a>
+</p>
+
+        </div>
+    </div>
+</header>
+
+<main class="content" role="main">
+
+    <article class="post">
+
+        <header class="post-header">
+            <section class="post-meta">
+                <time class="post-date" datetime="2012-01-26">26 Jan 2012</time>
+                
+            </section>
+        </header>
+
+        <section class="post-content">
+            <p>For the sake of this tutorial and my own comfort I’m going to assume you’re using some sort of Debian based Linux distribution. But of course this will work on anything that runs Lighttpd.</p>
+
+<!-- more -->
+
+<p>First we’ll install Lighttpd and get PHP working.</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>apt-get install lighttpd php5-cgi lighttpd-mod-magnet
+</code></pre></div></div>
+
+<p>Configuration files for Lighttpd go into /etc/lighttpd/conf-enabled. We need the following.</p>
+
+<h3 id="10-fastcgiconf">10-fastcgi.conf</h3>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>server.modules   +<span class="o">=</span> <span class="o">(</span> <span class="s2">"mod_fastcgi"</span> <span class="o">)</span>
+
+fastcgi.server    <span class="o">=</span> <span class="o">(</span> <span class="s2">".php"</span> <span class="o">=&gt;</span>
+        <span class="o">((</span>
+                <span class="s2">"bin-path"</span> <span class="o">=&gt;</span> <span class="s2">"/usr/bin/php-cgi"</span>,
+                <span class="s2">"socket"</span> <span class="o">=&gt;</span> <span class="s2">"/tmp/php.socket"</span>,
+                <span class="s2">"max-procs"</span> <span class="o">=&gt;</span> 2,
+                <span class="s2">"idle-timeout"</span> <span class="o">=&gt;</span> 20,
+                <span class="s2">"bin-environment"</span> <span class="o">=&gt;</span> <span class="o">(</span>
+                        <span class="s2">"broken-scriptfilename"</span> <span class="o">=&gt;</span> <span class="s2">"enable"</span>,
+                        <span class="s2">"PHP_FCGI_CHILDREN"</span> <span class="o">=&gt;</span> <span class="s2">"8"</span>,
+                        <span class="s2">"PHP_FCGI_MAX_REQUESTS"</span> <span class="o">=&gt;</span> <span class="s2">"10000"</span>
+                <span class="o">)</span>,
+                <span class="s2">"bin-copy-environment"</span> <span class="o">=&gt;</span> <span class="o">(</span>
+                        <span class="s2">"PATH"</span>, <span class="s2">"SHELL"</span>, <span class="s2">"USER"</span>
+                <span class="o">)</span>,
+                <span class="s2">"broken-scriptfilename"</span> <span class="o">=&gt;</span> <span class="s2">"enable"</span>,
+                <span class="s2">"allow-x-send-file"</span> <span class="o">=&gt;</span> <span class="s2">"enable"</span>
+        <span class="o">))</span>
+<span class="o">)</span>
+</code></pre></div></div>
+
+<h3 id="10-magnetconf">10-magnet.conf</h3>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>server.modules +<span class="o">=</span> <span class="o">(</span> <span class="s2">"mod_magnet"</span> <span class="o">)</span>
+your-vhost.conf
+<span class="nv">$HTTP</span><span class="o">[</span><span class="s2">"host"</span><span class="o">]</span> <span class="o">=</span>~ <span class="s2">"^(www</span><span class="se">\.</span><span class="s2">)?yourhost</span><span class="se">\.</span><span class="s2">tld"</span> <span class="o">{</span>
+  var.servername <span class="o">=</span> <span class="s2">"yourhost"</span>
+
+  <span class="c"># Set basedir for our domains</span>
+  var.basedir <span class="o">=</span> <span class="s2">"/var/www/"</span>
+
+  <span class="c"># Documentroot = basedir + servername</span>
+  server.document-root <span class="o">=</span> basedir + servername
+
+  <span class="c"># Attach the mod_magnet URL</span>
+  magnet.attract-physical-path-to <span class="o">=</span> <span class="o">(</span> <span class="s2">"/etc/lighttpd/wordpress.lua"</span> <span class="o">)</span>
+<span class="o">}</span>
+</code></pre></div></div>
+
+<h3 id="lighttpdconf">lighttpd.conf</h3>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>server.modules <span class="o">=</span> <span class="o">(</span>
+        <span class="s2">"mod_access"</span>,
+        <span class="s2">"mod_expire"</span>,
+        <span class="s2">"mod_alias"</span>,
+        <span class="s2">"mod_compress"</span>,
+        <span class="s2">"mod_redirect"</span>,
+        <span class="s2">"mod_rewrite"</span>,
+<span class="o">)</span>
+
+server.document-root        <span class="o">=</span> <span class="s2">"/var/www"</span>
+server.upload-dirs          <span class="o">=</span> <span class="o">(</span> <span class="s2">"/var/cache/lighttpd/uploads"</span> <span class="o">)</span>
+server.errorlog             <span class="o">=</span> <span class="s2">"/var/log/lighttpd/error.log"</span>
+server.pid-file             <span class="o">=</span> <span class="s2">"/var/run/lighttpd.pid"</span>
+server.username             <span class="o">=</span> <span class="s2">"www-data"</span>
+server.groupname            <span class="o">=</span> <span class="s2">"www-data"</span>
+index-file.names            <span class="o">=</span> <span class="o">(</span> <span class="s2">"index.php"</span>, <span class="s2">"index.html"</span>,
+                                <span class="s2">"index.htm"</span>, <span class="s2">"default.htm"</span>,
+                               <span class="s2">" index.lighttpd.html"</span> <span class="o">)</span>
+url.access-deny             <span class="o">=</span> <span class="o">(</span> <span class="s2">"~"</span>, <span class="s2">".inc"</span> <span class="o">)</span>
+static-file.exclude-extensions <span class="o">=</span> <span class="o">(</span> <span class="s2">".php"</span>, <span class="s2">".pl"</span>, <span class="s2">".fcgi"</span> <span class="o">)</span>
+dir-listing.encoding        <span class="o">=</span> <span class="s2">"utf-8"</span>
+server.dir-listing          <span class="o">=</span> <span class="s2">"enable"</span>
+
+<span class="nv">$HTTP</span><span class="o">[</span><span class="s2">"url"</span><span class="o">]</span> <span class="o">=</span>~ <span class="s2">"</span><span class="se">\.</span><span class="s2">(png|js|jpg|gif|ico|css)$"</span> <span class="o">{</span>
+        expire.url <span class="o">=</span> <span class="o">(</span> <span class="s2">""</span> <span class="o">=&gt;</span> <span class="s2">"access 40 days"</span> <span class="o">)</span>
+<span class="o">}</span>
+
+<span class="nv">$HTTP</span><span class="o">[</span><span class="s2">"url"</span><span class="o">]</span> <span class="o">=</span>~ <span class="s2">"</span><span class="se">\.</span><span class="s2">(html|htm)$"</span> <span class="o">{</span>
+        expire.url <span class="o">=</span> <span class="o">(</span> <span class="s2">""</span> <span class="o">=&gt;</span> <span class="s2">"access 1 seconds"</span> <span class="o">)</span>
+<span class="o">}</span>
+
+compress.cache-dir          <span class="o">=</span> <span class="s2">"/var/cache/lighttpd/compress/"</span>
+compress.filetype           <span class="o">=</span> <span class="o">(</span> <span class="s2">"application/x-javascript"</span>, <span class="s2">"text/css"</span>, <span class="s2">"text/html"</span>, <span class="s2">"text/plain"</span> <span class="o">)</span>
+include_shell <span class="s2">"/usr/share/lighttpd/create-mime.assign.pl"</span>
+include_shell <span class="s2">"/usr/share/lighttpd/include-conf-enabled.pl"</span>
+</code></pre></div></div>
+
+<h3 id="mysql-and-phpmyadmin">MySQL and PHPMyAdmin</h3>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>apt-get <span class="nb">install </span>mysql-server-5.1
+<span class="nb">mkdir</span> /var/www/phpmyadmin
+<span class="nb">cd</span> /var/www/phpmyadmin
+svn co https://phpmyadmin.svn.sourceforge.net/svnroot/phpmyadmin/tags/STABLE/phpMyAdmin <span class="nb">.</span>
+</code></pre></div></div>
+
+<h3 id="wordpress">WordPress</h3>
+<p>Now you can download WordPress and create a database. You will also need to place wordpress.lua in the configured directory. The LUA file needs to look like this.</p>
+
+<div class="language-lua highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">attr</span> <span class="o">=</span> <span class="n">lighty</span><span class="p">.</span><span class="n">stat</span><span class="p">(</span><span class="n">lighty</span><span class="p">.</span><span class="n">env</span><span class="p">[</span><span class="s2">"physical.path"</span><span class="p">])</span>
+<span class="k">if</span> <span class="p">(</span><span class="ow">not</span> <span class="n">attr</span><span class="p">)</span> <span class="k">then</span>
+  <span class="n">lighty</span><span class="p">.</span><span class="n">env</span><span class="p">[</span><span class="s2">"uri.path"</span><span class="p">]</span> <span class="o">=</span> <span class="s2">"/index.php"</span>
+  <span class="n">lighty</span><span class="p">.</span><span class="n">env</span><span class="p">[</span><span class="s2">"physical.rel-path"</span><span class="p">]</span> <span class="o">=</span> <span class="n">lighty</span><span class="p">.</span><span class="n">env</span><span class="p">[</span><span class="s2">"uri.path"</span><span class="p">]</span>
+  <span class="n">lighty</span><span class="p">.</span><span class="n">env</span><span class="p">[</span><span class="s2">"physical.path"</span><span class="p">]</span> <span class="o">=</span> <span class="n">lighty</span><span class="p">.</span><span class="n">env</span><span class="p">[</span><span class="s2">"physical.doc-root"</span><span class="p">]</span> <span class="o">..</span> <span class="n">lighty</span><span class="p">.</span><span class="n">env</span><span class="p">[</span><span class="s2">"physical.rel-path"</span><span class="p">]</span>
+<span class="k">end</span>
+</code></pre></div></div>
+
+        </section>
+
+    </article>
+
+</main>
+
+      <footer class="site-footer clearfix">
+        <section class="copyright">
+          <a href="/">Mijndert Stuij</a> &copy;
+            2018 &bull; All rights reserved.
+        </section>
+        <section class="poweredby">
+          Made with Jekyll using a modified <a href="http://github.com/rosario/kasper">Kasper theme</a>
+        </section>
+      </footer>
+  </body>
+  <link rel="stylesheet" type="text/css" href="/assets/css/style.css" />
+  <link rel="stylesheet" type="text/css" href="/assets/css/custom.css" />
+  <link rel="stylesheet" type="text/css" href="//fonts.googleapis.com/css?family=Merriweather:300,700,700italic,300italic|Open+Sans:700,400" />
+</html>

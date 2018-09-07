@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html>
+  <head>
+      <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+      <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1" />
+      <title>Mijndert Stuij - How to solve Apt-get waiting for headers</title>
+      <meta name="description" content="Consulting AWS engineer and proponent of simplicity with a focus on highly scalable cloud infrastructure" />
+      <meta name="HandheldFriendly" content="True" />
+      <meta name="MobileOptimized" content="320" />
+      <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+      <link rel="shortcut icon" href="/favicon.ico">
+      <meta name="google-site-verification" content="saUIHjzun9dAGQ4-YTEb0W_vLiFRM1sEiHZXPCCOmyc" />
+      <link rel="alternate" type="application/rss+xml" title="Mijndert Stuij" href="https://mijndertstuij.nl/feed.xml">
+  </head>
+  <body class="home-template">
+      <header class="main-header post-header no-cover">
+    <div class="vertical">
+        <div class="main-header-content inner">
+            <h1 class="page-title">How to solve Apt-get waiting for headers</h1>
+            <p class="nav">
+  <a href="/">Home</a>
+  <a href="/about/">About</a>
+  <a href="/uses/">Uses</a>
+  <a href="/now/">Now</a>
+  <a href="mailto:mijndert@mijndertstuij.nl">AMA</a>
+</p>
+
+        </div>
+    </div>
+</header>
+
+<main class="content" role="main">
+
+    <article class="post">
+
+        <header class="post-header">
+            <section class="post-meta">
+                <time class="post-date" datetime="2015-06-19">19 Jun 2015</time>
+                
+            </section>
+        </header>
+
+        <section class="post-content">
+            <p>Sometimes you play around with some third-party repositories on your Debian-based Linux box, only to find out apt-get hangs while <em>waiting for headers</em>. Really annoying.</p>
+
+<!-- more -->
+
+<p>You can regenerate the apt-get list cache by executing the following steps.</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">sudo </span>apt-get clean
+<span class="nb">cd</span> /var/lib/apt
+<span class="nb">sudo mv </span>lists lists.old
+<span class="nb">sudo mkdir</span> <span class="nt">-p</span> lists/partial
+<span class="nb">sudo </span>apt-get clean
+<span class="nb">sudo </span>apt-get update
+</code></pre></div></div>
+
+<p>That should fix the issue and you should have <em>apt-get update</em> working again. If it did, you can safely remove <em>/var/lib/apt/lists.old/</em> from your system.</p>
+
+        </section>
+
+    </article>
+
+</main>
+
+      <footer class="site-footer clearfix">
+        <section class="copyright">
+          <a href="/">Mijndert Stuij</a> &copy;
+            2018 &bull; All rights reserved.
+        </section>
+        <section class="poweredby">
+          Made with Jekyll using a modified <a href="http://github.com/rosario/kasper">Kasper theme</a>
+        </section>
+      </footer>
+  </body>
+  <link rel="stylesheet" type="text/css" href="/assets/css/style.css" />
+  <link rel="stylesheet" type="text/css" href="/assets/css/custom.css" />
+  <link rel="stylesheet" type="text/css" href="//fonts.googleapis.com/css?family=Merriweather:300,700,700italic,300italic|Open+Sans:700,400" />
+</html>

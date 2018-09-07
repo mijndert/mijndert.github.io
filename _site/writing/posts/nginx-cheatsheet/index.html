@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html>
+  <head>
+      <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+      <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1" />
+      <title>Mijndert Stuij - Nginx cheatsheet</title>
+      <meta name="description" content="Consulting AWS engineer and proponent of simplicity with a focus on highly scalable cloud infrastructure" />
+      <meta name="HandheldFriendly" content="True" />
+      <meta name="MobileOptimized" content="320" />
+      <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+      <link rel="shortcut icon" href="/favicon.ico">
+      <meta name="google-site-verification" content="saUIHjzun9dAGQ4-YTEb0W_vLiFRM1sEiHZXPCCOmyc" />
+      <link rel="alternate" type="application/rss+xml" title="Mijndert Stuij" href="https://mijndertstuij.nl/feed.xml">
+  </head>
+  <body class="home-template">
+      <header class="main-header post-header no-cover">
+    <div class="vertical">
+        <div class="main-header-content inner">
+            <h1 class="page-title">Nginx cheatsheet</h1>
+            <p class="nav">
+  <a href="/">Home</a>
+  <a href="/about/">About</a>
+  <a href="/uses/">Uses</a>
+  <a href="/now/">Now</a>
+  <a href="mailto:mijndert@mijndertstuij.nl">AMA</a>
+</p>
+
+        </div>
+    </div>
+</header>
+
+<main class="content" role="main">
+
+    <article class="post">
+
+        <header class="post-header">
+            <section class="post-meta">
+                <time class="post-date" datetime="2017-07-10">10 Jul 2017</time>
+                
+            </section>
+        </header>
+
+        <section class="post-content">
+            <p>I good while back I wrote some stuff about Nginx on an internal wiki. At that time the company was converting from using Apache to Nginx and not everyone was up to speed. I dubbed the wiki entry the <em>Nginx Cheatsheet</em>. I recently unearthed this fine piece of writing and I’m re-posting it here so more people might benefit from the effort.<!-- more --></p>
+
+<h2 id="simple-vhost">Simple vhost</h2>
+
+<p>The most simple vhost I can think of:</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>server {
+   listen 80;
+   server_name domain.nl www.domain.nl;
+   root /home/DOMAIN/www;
+   index index.html;
+}
+</code></pre></div></div>
+
+<h2 id="limit-accesibility">Limit accesibility</h2>
+
+<h3 id="by-username">By username</h3>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Location / {
+    auth_basic "Login for &lt;BLABLA&gt;";
+    auth_basic_user_file /home/BLABLA.htpasswd
+}
+</code></pre></div></div>
+
+<h3 id="by-ip-address">By IP address</h3>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Location / {
+    satisfy any;
+    allow 1.2.3.4;
+    deny all;
+}
+</code></pre></div></div>
+
+<h3 id="by-either-username-or-ip-address">By either username or IP address</h3>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Location / {
+    satisfy any;
+    auth_basic "Login for &lt;BLABLA&gt;";
+    auth_basic_user_file /home/BLABLA.htpasswd
+    allow 1.2.3.4;
+    deny all;
+}
+</code></pre></div></div>
+
+<h2 id="fastcgi">FastCGI</h2>
+
+<p>The most basic way to connect Nginx to FastCGI is this:</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>location ~ \.(hh|php)$ {
+   root /home/USERNAME/www;
+   include /etc/nginx/fastcgi_params;
+   fastcgi_pass 127.0.0.1:9000;
+   try_files $uri=404;
+   fastcgi_index index.php;
+   fastcgi_param SCRIPT_FILENAME /home/USERNAME/www$fastcgi_script_name;
+   fastcgi_param PATH_TRANSLATED /home/USERNAME/www$fastcgi_script_name;
+}
+</code></pre></div></div>
+
+<p>More on tweaking FastCGI settings in <em>DoS prevention</em>.</p>
+
+<h2 id="redirects">Redirects</h2>
+
+<p>If you want to have one or more domain names to redirect to another it’s really easy to do so. Way easier than Apache anyway.</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>server {
+   listen       80;
+   server_name  olddomain.nl www.olddomain.nl;
+   return       301 http://www.DOMAINNAME.nl$request_uri;
+}
+</code></pre></div></div>
+
+<p>You can also do some neat things with regex:</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code># Server-wide redirect
+rewrite ^/example/something/?.* http://DOMAIN.nl/example permanent;
+# Location-specific redirect
+location /example/something/ {
+  rewrite /example/something/(.*)$ http://DOMAIN.nl/$1;
+}
+</code></pre></div></div>
+
+<p>And you can ‘if’ your way out of a rewrite, for example when ?post_type is included in the URI:</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>location ~ ^/feed$ { if ($arg_post_type = "") { rewrite ^/rss2/?$http://feedpress.me/example redirect; } }
+</code></pre></div></div>
+
+<p>Redirect all traffic to HTTPS:</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>if ($scheme = 'http') {
+     rewrite ^ https://$host$request_uri? permanent;
+}
+</code></pre></div></div>
+
+<h2 id="fastcgi-caching">FastCGI caching</h2>
+
+<p>First you’ll need to add a cache path to the top of your vhost:</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>fastcgi_cache_path /var/cache/nginx/DOMAIN levels=1:2 keys_zone=DOMAIN:100m inactive=60m;
+</code></pre></div></div>
+
+<p>You can also add a header to check whether your requests is cached or not. You’ll either get HIT (you’re cached), MISS (it was not in cache, will be next time!) or BYPASS (something is forcing your request not to be cached) as returned values.</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>add_header X-Cache $upstream_cache_status;
+</code></pre></div></div>
+
+<p>Enable caching and have query strings and POST requests always go to PHP:</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code># fastcgi_cache start
+set $no_cache 0;
+
+# POST requests and urls with a query string should always go to PHP
+if ($request_method = POST) {
+   set $no_cache 1;
+}
+
+if ($query_string != "") {
+   set $no_cache 1;
+}
+</code></pre></div></div>
+
+<p>You can make exceptions for certain query strings that you do want to have cached:</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code># don't cache pages which have these query strings as arg
+if ( $arg_utm_campaign != "" ) { set $no_cache 0; }
+if ( $arg_utm_medium != "" ) { set $no_cache 0; }
+if ( $arg_utm_source != "" ) { set $no_cache 0; }
+if ( $arg_gclid != "" ) { set $no_cache 0; }
+</code></pre></div></div>
+
+<p>You should make exceptions for certain pages you don’t want to have cached, like /login and /admin. Also, when a user has a cookie because he/she is logged in.</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code># Don't cache uris containing the following segments
+if ($request_uri ~* "(/wp-admin/|/xmlrpc.php||sitemap(_index)?.xml)" {
+   set $no_cache 1;
+}
+
+# Don't use the cache for logged in users or recent commenters
+if ($http_cookie ~* "comment_author|wordpress_[a-f0-9]+|wp-postpass|wordpress_no_cache|wordpress_logged_in") {
+   set $no_cache 1;
+}
+</code></pre></div></div>
+
+<p>In order to actually have PHP output be cached, you’ll need to add this to your ‘Location’ for .php files:</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>fastcgi_cache_bypass $no_cache;
+fastcgi_no_cache $no_cache;
+fastcgi_cache DOMAIN;
+fastcgi_cache_valid 200 302 60m; # WARNING: only use high valids if cache purge module is used
+fastcgi_cache_valid 404 1m; # keep 404 low
+</code></pre></div></div>
+
+<p>If you want to disable caching for whatever reason you only have to set no_cache to 1:</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>set $no_cache 1;
+</code></pre></div></div>
+
+<p>In order to remove entries from the FastCGI cache you’ll need to use the ngx_cache_purge module. This allows certain IP’s to call for example http://domain.nl/purge/about. There’s a plugin for WordPress that does this automatically for you upon editting posts and pages.</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>location ~ /purge(/.*) {
+   allow 127.0.0.1;
+   allow 1.2.3.4;
+   deny all;
+   fastcgi_cache_purge DOMAIN "$scheme$request_method$host$1";
+}
+</code></pre></div></div>
+
+<h2 id="sub-domains">Sub-domains</h2>
+
+<p>In Apache you can use ServerAlias to add more domain names to a vhost. Nginx doesn’t have any of that because it’s confusing. In Nginx you just add more stuff behind ServerName.</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>ServerName domain.nl domain.com domain.org
+</code></pre></div></div>
+
+<p>You can also have all sub-domains (and the zone apex itself) of a certain zone apex pointing into a vhost by adding just one entry to ServerName:</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>ServerName .domain.nl
+</code></pre></div></div>
+
+<p>This will match domain.nl, www.domain.nl, bob.domain.nl, example.domain.nl, etc.</p>
+
+<h2 id="userdir">Userdir</h2>
+
+<p>Nginx does not natively support userdirs, but it can be done by using regex captures.</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>location ~ ^/~(.+?)(/.*)?$ {
+   alias /home/$1/www$2;
+}
+</code></pre></div></div>
+
+<p>You may get 403 Forbidden when you just put the snippet above into your nginx configuration, because by default nginx does not allow autoindex. If you would like it to behave more like the default Apache userdir, add two lines as below:</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>location ~ ^/~(.+?)(/.*)?$ {
+   alias /home/$1/www$2;
+   index  index.php index.html;
+   autoindex on;
+}
+</code></pre></div></div>
+
+<h2 id="dos-prevention">DoS prevention</h2>
+
+<p>In order to prevent people, or processes, from completely flooding FastCGI with requests and filling the buffers, we add some sensible defaults to the FastCGI settings.</p>
+
+<p>The following tries to prevent hanging FastCGI processes, full buffers and request flooding:</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>fastcgi_intercept_errors on;
+fastcgi_ignore_client_abort off;
+fastcgi_connect_timeout 60;
+fastcgi_send_timeout 180;
+fastcgi_read_timeout 180;
+fastcgi_buffer_size 128k;
+fastcgi_buffers 4 256k;
+fastcgi_busy_buffers_size 256k;
+fastcgi_temp_file_write_size 256k;
+</code></pre></div></div>
+
+<h2 id="deny-execution-of-php-files">Deny execution of PHP files</h2>
+
+<p>To prevent the execution of .php files in the uploads directory in WordPress’ case you can add the following to your vhost:</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>location ~* /(?:uploads|files)/.*\.php$ {
+  deny all;
+}
+</code></pre></div></div>
+
+<p>This is a security measure. Sometimes a plugin is broken and allows an attacker to upload .php files. These files will usually end up in wp-content/uploads.</p>
+
+<h2 id="performance-tweaks">Performance tweaks</h2>
+
+<h3 id="enable-gzip">Enable gzip</h3>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>gzip                      on;
+gzip_min_length           1100;
+gzip_buffers              4 32k;
+gzip_vary                 on;
+gzip_http_version         1.0;
+gzip_comp_level           5; # 5 has best overall compression vs slightly higher cpu. Depending on server load this can be set to 4.
+gzip_proxied              any;
+gzip_types                text/plain text/css application/x-javascript text/xml application/xml application/xml+rss text/javascript application/javascript application/json;
+gzip_disable              "MSIE [1-6]\.(?!.*SV1)";
+</code></pre></div></div>
+
+<h3 id="enable-open-file-cache">Enable open file cache</h3>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>open_file_cache           max=200000 inactive=2h;
+open_file_cache_errors    on;
+open_file_cache_min_uses  2;
+open_file_cache_valid     1h;
+</code></pre></div></div>
+
+<h3 id="open-file-limits">Open file limits</h3>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code># set open fd limit to 81920
+worker_rlimit_nofile 81920; # must be equal or higher as 'worker_processes' * 'worker_connections'
+events {
+   worker_connections 10240; # 'worker_processes' * 'worker_connections' cannot exceed 'worker_rlimit_nofile'
+   use epoll;
+   multi_accept on;
+}
+</code></pre></div></div>
+
+<h2 id="ssl">SSL</h2>
+<p>More on using SSL with Nginx can be found <a href="https://mijndertstuij.nl/writing/posts/letsencrypt-ssl-nginx/">here</a> and <a href="http://127.0.0.1:4000/writing/posts/using-acme.sh-to-issue-lets-encrypt-certificates/">here</a>.</p>
+
+<h2 id="work-with-me-here-okay">Work with me here, okay?</h2>
+
+<p>If you see anything that’s outdated or otherwise broken, please open a pull request on <a href="https://github.com/mijndert/mijndertstuij.nl">my repository</a>.</p>
+
+        </section>
+
+    </article>
+
+</main>
+
+      <footer class="site-footer clearfix">
+        <section class="copyright">
+          <a href="/">Mijndert Stuij</a> &copy;
+            2018 &bull; All rights reserved.
+        </section>
+        <section class="poweredby">
+          Made with Jekyll using a modified <a href="http://github.com/rosario/kasper">Kasper theme</a>
+        </section>
+      </footer>
+  </body>
+  <link rel="stylesheet" type="text/css" href="/assets/css/style.css" />
+  <link rel="stylesheet" type="text/css" href="/assets/css/custom.css" />
+  <link rel="stylesheet" type="text/css" href="//fonts.googleapis.com/css?family=Merriweather:300,700,700italic,300italic|Open+Sans:700,400" />
+</html>
