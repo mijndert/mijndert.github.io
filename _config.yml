@@ -1,9 +1,9 @@
 name: Mijndert Stuij
-description: Consulting AWS engineer and proponent of simplicity with a focus on highly scalable cloud infrastructure
-url:            'https://mijndertstuij.nl'
+description: This is an archive of old posts
+url:            'https://mijndert.github.io'
 author:         'Mijndert Stuij'
 
-paginate: 10
+paginate: 100
 #baseurl: "/"
 
 excerpt_separator: "<!-- more -->"
